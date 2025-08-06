@@ -1,0 +1,61 @@
+@startuml
+package users {
+  class User {
+    +id: int
+    +username: str
+    +email: str
+    +password: str
+    +webhook_url: URL
+  }
+}
+
+package weather {
+  class WeatherAPIClient {
+    +get_current(city_name: str) : WeatherData
+  }
+  class WeatherData {
+    +temperature: float
+    +humidity: int
+    +condition: str
+    +timestamp: datetime
+  }
+}
+
+package subscriptions {
+  class City {
+    +id: int
+    +name: str
+    +external_id: str
+  }
+
+  class Subscription {
+    +id: int
+    +user: User
+    +city: City
+    +interval_hours: int
+    +last_notified: datetime
+  }
+}
+
+package notifications {
+  class NotificationLog {
+    +id: int
+    +subscription: Subscription
+    +sent_at: datetime
+    +status: str
+    +response: text
+  }
+
+  class NotificationService {
+    +send_email(sub: Subscription, data: WeatherData)
+    +send_webhook(sub: Subscription, data: WeatherData)
+  }
+}
+
+User "1" -- "0..*" Subscription
+City "1" -- "0..*" Subscription
+Subscription "1" -- "0..*" NotificationLog
+WeatherAPIClient ..> City
+NotificationService ..> Subscription
+NotificationService ..> WeatherData
+@enduml
