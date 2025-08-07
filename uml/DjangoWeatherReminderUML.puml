@@ -33,6 +33,7 @@ package subscriptions {
     +user: User
     +city: City
     +interval_hours: int
+	+type: webhook/email
     +last_notified: datetime
   }
 }
