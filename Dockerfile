@@ -19,6 +19,6 @@ COPY . .
 RUN curl -sSLo /usr/local/bin/wait-for-it https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh \
  && chmod +x /usr/local/bin/wait-for-it
 
-EXPOSE 9000
+EXPOSE 8000
 
 CMD ["wait-for-it","db:5432","--","sh","-c","python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn djangoweatherreminder.wsgi:application --bind 0.0.0.0:8000 --workers 3 --threads 2 --timeout 60"]
