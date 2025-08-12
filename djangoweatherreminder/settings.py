@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -181,4 +182,15 @@ SPECTACULAR_SETTINGS = {
         }
     },
     "SWAGGER_UI_SETTINGS": {"persistAuthorization": True},
+}
+
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_IGNORE_RESULT = True
+
+CELERY_BEAT_SCHEDULE = {
+    "send-weather-updates-every-minute": {
+        "task": "notifications.tasks.send_weather_updates",
+        "schedule": crontab(minute="*"),
+    },
 }

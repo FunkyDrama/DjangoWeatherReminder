@@ -4,25 +4,21 @@ from weather.services import WeatherAPIClient
 from notifications.services import NotificationService
 from notifications.models import NotificationLog
 import requests
+from celery import shared_task
 
 
-# use it when Celery is added
+@shared_task(ignore_result=True)
 def send_weather_updates():
     """
-    Sends weather updates to subscribers based on their preferences.
+    Sends weather updates to subscribers based on their preferred notification type and
+    update interval. This task fetches the latest weather data for subscribed cities and
+    sends notifications via email or webhook. It also ensures that notifications are sent
+    only if the elapsed time since the last notification exceeds the subscriber's update
+    interval.
 
-    This function iterates through all active subscriptions and checks if a
-    notification needs to be sent based on the last notification time and
-    the defined interval. Weather data for the subscribed city is retrieved
-    from the WeatherAPIClient, and notifications are sent either via email
-    or webhook. It updates the last notified time for successful notifications.
-    In case of errors during the process, logs are created in the
-    NotificationLog model for tracking.
+    The task handles and logs any errors encountered during the weather data retrieval
+    or notification sending process.
 
-    :raises requests.exceptions.HTTPError: Raised when there is an HTTP-related
-        error while fetching weather data from the external API.
-    :raises Exception: Raised for any other unexpected error during the
-        process.
     :return: None
     """
     client = WeatherAPIClient()
@@ -52,21 +48,25 @@ def send_weather_updates():
         else:
             NotificationService.send_webhook(sub, data)
         sub.last_notified = now
-        sub.save()
+        sub.save(update_fields=["last_notified"])
 
 
-def send_for_subscription(sub):
+@shared_task(ignore_result=True)
+def send_for_subscription(sub_id: int):
     """
-    Sends a weather update notification according to the subscription
-    details. It fetches current weather data for the given subscription's
-    city and triggers the appropriate notification.
+    Retrieves a subscription by its ID and sends a weather notification based on the
+    subscription's associated city and notification type.
 
-    :param sub: The subscription object containing the notification type,
-        subscriber details, and city for which weather updates are to be
-        fetched. Must have `city` and `notification_type` attributes.
-    :type sub: Subscription
+    :param sub_id: The unique identifier of the subscription.
+    :type sub_id: int
+
     :return: None
     """
+    try:
+        sub = Subscription.objects.select_related("user", "city").get(pk=sub_id)
+    except Subscription.DoesNotExist:
+        return
+
     client = WeatherAPIClient()
     try:
         data = client.get_current(sub.city.name)
@@ -87,4 +87,4 @@ def send_for_subscription(sub):
         NotificationService.send_webhook(sub, data)
 
     sub.last_notified = timezone.now()
-    sub.save()
+    sub.save(update_fields=["last_notified"])

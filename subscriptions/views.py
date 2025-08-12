@@ -20,4 +20,7 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         sub = serializer.save(user=self.request.user)
-        send_for_subscription(sub)
+        try:
+            send_for_subscription.delay(sub.id)
+        except Exception:
+            send_for_subscription(sub.id)
