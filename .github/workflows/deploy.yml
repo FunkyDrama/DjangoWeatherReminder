@@ -1,0 +1,79 @@
+name: Deploy Weather Reminder
+
+on:
+  push:
+    branches: [ dev ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@master
+
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          RABBITMQ_DEFAULT_USER: ${{ secrets.RABBITMQ_DEFAULT_USER }}
+          RABBITMQ_DEFAULT_PASS: ${{ secrets.RABBITMQ_DEFAULT_PASS }}
+          CELERY_BROKER_URL: ${{ secrets.CELERY_BROKER_URL }}
+          EMAIL_HOST_USER: ${{ secrets.EMAIL_HOST_USER }}
+          EMAIL_HOST_PASSWORD: ${{ secrets.EMAIL_HOST_PASSWORD }}
+          OPEN_WEATHER_API_KEY: ${{ secrets.OPEN_WEATHER_API_KEY }}
+        with:
+            host: ${{ secrets.SERVER_HOST }}
+            username: ${{ secrets.SERVER_USER }}
+            key: ${{ secrets.SSH_PRIVATE_KEY }}
+            command_timeout: 20m
+            envs: SECRET_KEY,POSTGRES_DB,POSTGRES_USER,POSTGRES_HOST,POSTGRES_PORT,POSTGRES_PASSWORD,RABBITMQ_DEFAULT_USER,RABBITMQ_DEFAULT_PASS,CELERY_BROKER_URL,EMAIL_HOST_USER,EMAIL_HOST_PASSWORD,OPEN_WEATHER_API_KEY
+            script: |
+              cd ~/projects/weather
+              echo "🚀 Starting deployment..."
+              if [ ! -f .env ]; then
+                echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" > .env
+                echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> .env
+                echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
+                echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> .env
+                echo "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> .env
+                echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
+                echo "RABBITMQ_DEFAULT_USER=${{ secrets.RABBITMQ_DEFAULT_USER }}" >> .env
+                echo "RABBITMQ_DEFAULT_PASS=${{ secrets.RABBITMQ_DEFAULT_PASS }}" >> .env
+                echo "CELERY_BROKER_URL=${{ secrets.CELERY_BROKER_URL }}" >> .env
+                echo "EMAIL_HOST_USER=${{ secrets.EMAIL_HOST_USER }}" >> .env
+                echo "EMAIL_HOST_PASSWORD=${{ secrets.EMAIL_HOST_PASSWORD }}" >> .env
+                echo "OPEN_WEATHER_API_KEY=${{ secrets.OPEN_WEATHER_API_KEY }}" >> .env
+              fi
+              
+              if [ ! -d ".git" ]; then
+              git init
+              git remote add origin https://github.com/FunkyDrama/DjangoWeatherReminder.git
+              fi
+              
+              echo "📥 Fetching latest code..."
+              git fetch origin
+              git reset --hard origin/dev
+              
+              echo "🔨 Building Docker images..."
+              docker compose build
+              
+              echo "🚢 Starting containers..."
+              docker compose up -d
+              
+              echo "🧹 Cleaning up old images..."
+              docker image prune -f
+              
+              echo "✅ Deployment completed!"
+
+      - name: Send deployment notification
+        if: always()
+        run: |
+          echo "Deployment status: ${{ job.status }}"
