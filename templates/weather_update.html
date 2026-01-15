@@ -1,0 +1,146 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Weather Update</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        .weather-card {
+            font-family: Arial, sans-serif;
+            max-width: 420px;
+            margin: 20px auto;
+            padding: 24px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 12px 24px rgba(0,0,0,0.25);
+        }
+
+        .weather-header {
+            text-align: center;
+        }
+
+        .weather-header h2 {
+            margin: 0;
+            font-size: 26px;
+            font-weight: 700;
+        }
+
+        .timestamp {
+            margin-top: 6px;
+            font-size: 14px;
+            opacity: 0.85;
+            font-style: italic;
+        }
+
+        .weather-icon {
+            text-align: center;
+            margin: 22px 0 10px;
+        }
+
+        .weather-icon img {
+            width: 100px;
+            height: 100px;
+        }
+
+        .temperature {
+            text-align: center;
+            font-size: 52px;
+            font-weight: 800;
+            margin: 6px 0;
+        }
+
+        .condition {
+            text-align: center;
+            font-size: 24px;
+            font-weight: 600;
+            margin: 10px 0 2px;
+        }
+
+        .description {
+            text-align: center;
+            font-size: 16px;
+            opacity: 0.9;
+            font-style: italic;
+            text-transform: capitalize;
+            margin-bottom: 22px;
+        }
+
+        .details {
+            display: flex;
+            justify-content: space-evenly;
+            border-top: 1px solid rgba(255, 255, 255, 0.35);
+            padding-top: 18px;
+        }
+
+        .detail-item {
+            width: 33.33%;
+            text-align: center;
+        }
+
+        .detail-item strong {
+            display: block;
+            font-size: 14px;
+            opacity: 0.85;
+            margin-bottom: 4px;
+        }
+
+        .detail-item span {
+            font-size: 18px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="weather-card">
+        <div class="weather-header">
+            <h2>Weather in {{ city }}</h2>
+            <p class="timestamp">
+                Updated {{ timestamp|naturaltime }}
+            </p>
+        </div>
+
+        <div class="weather-icon">
+            <img
+                src="https://openweathermap.org/img/wn/{{ icon }}@2x.png"
+                alt="{{ condition }}"
+            >
+        </div>
+
+        <div class="temperature">
+            {{ temperature|floatformat:1 }}°C
+        </div>
+
+        <div class="condition">
+            {{ condition }}
+        </div>
+
+        <div class="description">
+            {{ description }}
+        </div>
+
+        <div class="details">
+            <div class="detail-item">
+                <strong>Humidity</strong>
+                <span>{{ humidity }}%</span>
+            </div>
+
+            <div class="detail-item">
+                <strong>Wind Speed</strong>
+                <span>{{ wind_speed|floatformat:1 }} m/s</span>
+            </div>
+
+            <div class="detail-item">
+                <strong>Feels Like</strong>
+                <span>{{ feels_like|floatformat:1 }}°C</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

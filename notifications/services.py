@@ -1,5 +1,6 @@
 import requests
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
 from django.conf import settings
 from notifications.models import NotificationLog
 
@@ -23,12 +24,21 @@ class NotificationService:
     @staticmethod
     def send_email(subscription, weather_data):
         subject = f"Weather update for {subscription.city.name}"
-        message = (
-            f"Temperature: {weather_data.temperature}°C\n"
-            f"Humidity: {weather_data.humidity}%\n"
-            f"Condition: {weather_data.condition}"
-        )
         recipient = subscription.user.email
+        message = render_to_string(
+            "weather_update.html",
+            {
+                "city": subscription.city.name,
+                "temperature": weather_data.temperature,
+                "humidity": weather_data.humidity,
+                "condition": weather_data.condition,
+                "description": weather_data.description,
+                "icon": weather_data.icon,
+                "wind_speed": weather_data.wind_speed,
+                "feels_like": weather_data.feels_like,
+                "timestamp": weather_data.timestamp,
+            },
+        )
 
         if not recipient:
             NotificationLog.objects.create(
@@ -39,7 +49,11 @@ class NotificationService:
             return
 
         try:
-            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [recipient])
+            email = EmailMultiAlternatives(
+                subject, message, settings.DEFAULT_FROM_EMAIL, [recipient]
+            )
+            email.attach_alternative(message, "text/html")
+            email.send()
             status = "sent"
             response = "OK"
         except Exception as e:
@@ -59,9 +73,14 @@ class NotificationService:
             return
 
         payload = {
+            "city": subscription.city.name,
             "temperature": weather_data.temperature,
             "humidity": weather_data.humidity,
             "condition": weather_data.condition,
+            "description": weather_data.description,
+            "icon": weather_data.icon,
+            "wind_speed": weather_data.wind_speed,
+            "feels_like": weather_data.feels_like,
             "timestamp": (
                 weather_data.timestamp.isoformat() if weather_data.timestamp else None
             ),

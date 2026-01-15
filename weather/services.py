@@ -20,6 +20,14 @@ class WeatherData:
     :type humidity: int
     :ivar condition: A description of current weather conditions (e.g., "Sunny", "Rainy").
     :type condition: str
+    :ivar icon: The icon code representing the weather condition.
+    :type icon: str
+    :ivar description: A more detailed description of the weather condition.
+    :type description: str
+    :ivar wind_speed: The speed of the wind in meters per second.
+    :type wind_speed: float
+    :ivar feels_like: The perceived temperature considering humidity and wind.
+    :type feels_like: float
     :ivar timestamp: The date and time the weather data was recorded.
     :type timestamp: datetime
     """
@@ -27,6 +35,10 @@ class WeatherData:
     temperature: float
     humidity: int
     condition: str
+    icon: str
+    description: str
+    wind_speed: float
+    feels_like: float
     timestamp: datetime
 
 
@@ -63,6 +75,10 @@ class WeatherAPIClient:
         return WeatherData(
             temperature=data["main"]["temp"],
             humidity=data["main"]["humidity"],
+            icon=data["weather"][0]["icon"],
             condition=data["weather"][0]["main"],
+            wind_speed=data["wind"]["speed"],
+            feels_like=data["main"]["feels_like"],
+            description=data["weather"][0]["description"],
             timestamp=datetime.fromtimestamp(data["dt"]),
         )

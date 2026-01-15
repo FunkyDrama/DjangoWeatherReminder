@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "weather",
     "subscriptions",
     "drf_spectacular",
+    "django.contrib.humanize",
 ]
 
 MIDDLEWARE = [
