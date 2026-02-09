@@ -32,6 +32,7 @@ class WeatherData:
     :type timestamp: datetime
     """
 
+    city: str
     temperature: float
     humidity: int
     condition: str
@@ -61,18 +62,38 @@ class WeatherAPIClient:
     """
 
     BASE_URL = "https://api.openweathermap.org/data/2.5"
+    GEO_URL = "https://api.openweathermap.org/geo/1.0"
     API_KEY = settings.WEATHER_API_KEY
 
-    def get_current(self, city_name: str) -> WeatherData:
-        params = {
-            "q": city_name,
-            "appid": self.API_KEY,
-            "units": "metric",
-        }
+    def geocode(self, query: str, limit: int = 5) -> list[dict]:
+        params = {"q": query, "limit": limit, "appid": self.API_KEY}
+        resp = requests.get(f"{self.GEO_URL}/direct", params=params)
+        resp.raise_for_status()
+        return [
+            {
+                "name": item["name"],
+                "country": item.get("country", ""),
+                "state": item.get("state", ""),
+                "lat": item["lat"],
+                "lon": item["lon"],
+            }
+            for item in resp.json()
+        ]
+
+    def get_current(
+        self, city_name: str = "", lat: float = None, lon: float = None
+    ) -> WeatherData:
+        params = {"appid": self.API_KEY, "units": "metric"}
+        if lat is not None and lon is not None:
+            params["lat"] = lat
+            params["lon"] = lon
+        else:
+            params["q"] = city_name
         resp = requests.get(f"{self.BASE_URL}/weather", params=params)
         resp.raise_for_status()
         data = resp.json()
         return WeatherData(
+            city=data["name"],
             temperature=data["main"]["temp"],
             humidity=data["main"]["humidity"],
             icon=data["weather"][0]["icon"],

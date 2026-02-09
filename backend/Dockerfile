@@ -20,7 +20,7 @@ RUN curl -sSLo /usr/local/bin/wait-for-it \
     https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh \
  && chmod +x /usr/local/bin/wait-for-it
 
-RUN python manage.py collectstatic --noinput
+RUN SECRET_KEY=build-placeholder python manage.py collectstatic --noinput
 
 EXPOSE 8000
 

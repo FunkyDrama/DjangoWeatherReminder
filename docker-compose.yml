@@ -44,7 +44,7 @@ services:
       retries: 5
 
   web:
-    build: .
+    build: ./backend
     container_name: weather_web
     restart: unless-stopped
     env_file: .env
@@ -62,7 +62,7 @@ services:
           memory: 256M
 
   nginx:
-    image: nginx:alpine
+    build: ./frontend
     container_name: weather_nginx
     restart: unless-stopped
     ports:
@@ -81,7 +81,7 @@ services:
           memory: 64M
 
   celery:
-    build: .
+    build: ./backend
     container_name: weather_celery
     restart: unless-stopped
     env_file: .env
@@ -102,7 +102,7 @@ services:
           memory: 192M
 
   celery-beat:
-    build: .
+    build: ./backend
     container_name: weather_celery_beat
     restart: unless-stopped
     env_file: .env
