@@ -35,9 +35,7 @@ class NotificationLogModelTests(TestCase):
     """
 
     def setUp(self):
-        self.user = User.objects.create_user(
-            email="m@test.com", username="m", password="pw"
-        )
+        self.user = User.objects.create_user(email="m@test.com", password="pw")
         self.city = City.objects.create(name="MCity")
         self.sub = Subscription.objects.create(
             user=self.user, city=self.city, interval_hours=1, notification_type="email"
@@ -84,9 +82,7 @@ class NotificationServiceTests(TestCase):
     """
 
     def setUp(self):
-        self.user = User.objects.create_user(
-            email="e@test.com", username="e", password="pw"
-        )
+        self.user = User.objects.create_user(email="e@test.com", password="pw")
         self.city = City.objects.create(name="ECity")
         self.sub_email = Subscription.objects.create(
             user=self.user, city=self.city, interval_hours=1, notification_type="email"
@@ -180,9 +176,7 @@ class SendWeatherUpdatesTaskTests(TestCase):
     """
 
     def setUp(self):
-        self.user = User.objects.create_user(
-            email="t@test.com", username="t", password="pw"
-        )
+        self.user = User.objects.create_user(email="t@test.com", password="pw")
         self.city = City.objects.create(name="TCity")
         self.sub_old = Subscription.objects.create(
             user=self.user,
@@ -227,12 +221,8 @@ class NotificationLogViewSetTests(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.user1 = User.objects.create_user(
-            email="v1@test.com", username="v1", password="pw"
-        )
-        self.user2 = User.objects.create_user(
-            email="v2@test.com", username="v2", password="pw"
-        )
+        self.user1 = User.objects.create_user(email="v1@test.com", password="pw")
+        self.user2 = User.objects.create_user(email="v2@test.com", password="pw")
         city = City.objects.create(name="VCity")
         sub1 = Subscription.objects.create(
             user=self.user1, city=city, interval_hours=1, notification_type="email"

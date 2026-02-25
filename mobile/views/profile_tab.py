@@ -152,10 +152,6 @@ class ProfileTab:
                                 content=ft.Column(
                                     spacing=0,
                                     controls=[
-                                        _info_row(
-                                            "Username", user.get("username", "—")
-                                        ),
-                                        ft.Divider(height=1, color=BORDER_COLOR),
                                         _info_row("Email", user.get("email", "—")),
                                     ],
                                 ),

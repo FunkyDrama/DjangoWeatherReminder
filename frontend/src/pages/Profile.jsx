@@ -39,10 +39,6 @@ export default function Profile() {
                     </div>
                 )}
                 <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1">Username</label>
-                    <p className="text-gray-800 font-medium">{user?.username}</p>
-                </div>
-                <div>
                     <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
                     <p className="text-gray-800 font-medium">{user?.email}</p>
                 </div>

@@ -49,18 +49,17 @@ class RegisterSerializerTests(TestCase):
     """
 
     def test_register_serializer_creates_user(self):
-        data = {"email": "a@b.com", "username": "alice", "password": "secret123"}
+        data = {"email": "a@b.com", "password": "secret123"}
         serializer = RegisterSerializer(data=data)
         self.assertTrue(serializer.is_valid(), serializer.errors)
         user = serializer.save()
         self.assertIsInstance(user, User)
         self.assertEqual(user.email, "a@b.com")
-        self.assertEqual(user.username, "alice")
         self.assertTrue(user.check_password("secret123"))
 
     def test_register_serializer_rejects_duplicate_email(self):
-        User.objects.create_user(email="dup@b.com", username="u1", password="pw")
-        data = {"email": "dup@b.com", "username": "u2", "password": "pw2"}
+        User.objects.create_user(email="dup@b.com", password="pw")
+        data = {"email": "dup@b.com", "password": "pw2"}
         serializer = RegisterSerializer(data=data)
         self.assertFalse(serializer.is_valid())
         self.assertIn("email", serializer.errors)
@@ -85,7 +84,7 @@ class UserAPITests(TestCase):
 
     def test_full_registration_and_me_flow(self):
         url_register = reverse("register")
-        payload = {"email": "bob@b.com", "username": "bob", "password": "pwd1234"}
+        payload = {"email": "bob@b.com", "password": "pwd1234"}
         r = self.client.post(url_register, payload, format="json")
         self.assertEqual(r.status_code, 201)
         url_login = reverse("token_obtain_pair")

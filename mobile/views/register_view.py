@@ -21,9 +21,9 @@ class RegisterView:
     Represents the registration view for the application.
 
     This class is responsible for creating and managing the user interface for
-    the registration process. It includes fields for username, email, and
-    password input, as well as error handling and integration with the API
-    service to register users and establish authentication sessions.
+    the registration process. It includes fields for email and password input,
+    as well as error handling and integration with the API service to register
+    users and establish authentication sessions.
 
     :ivar page: The current page instance passed to the view, used for rendering
         UI components and handling routing.
@@ -40,9 +40,6 @@ class RegisterView:
     def get_view(self) -> ft.View:
         page, api = self.page, self.api
 
-        username_field = build_auth_field(
-            "Username", "your_username", icon=ft.Icons.PERSON_OUTLINED
-        )
         email_field = build_auth_field(
             "Email",
             "you@example.com",
@@ -103,11 +100,10 @@ class RegisterView:
             page.update()
 
         async def handle_register(e) -> None:
-            username = username_field.value.strip()
             email = email_field.value.strip()
             password = password_field.value
 
-            if not username or not email or not password:
+            if not email or not password:
                 show_error("Please fill in all fields.")
                 return
             if len(password) < 8:
@@ -117,7 +113,7 @@ class RegisterView:
             error_box.visible = False
             set_loading(True)
             try:
-                await asyncio.to_thread(api.register, username, email, password)
+                await asyncio.to_thread(api.register, email, password)
                 data = await asyncio.to_thread(api.login, email, password)
                 auth_session: AuthSession = page.auth_session
                 await auth_session.establish(data["access"], data["refresh"])
@@ -200,7 +196,6 @@ class RegisterView:
                                 content=ft.Column(
                                     spacing=14,
                                     controls=[
-                                        username_field,
                                         email_field,
                                         password_field,
                                         error_box,

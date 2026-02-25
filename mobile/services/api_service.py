@@ -142,11 +142,11 @@ class APIService:
         )
         return resp.json()
 
-    def register(self, username: str, email: str, password: str) -> dict:
+    def register(self, email: str, password: str) -> dict:
         resp = self._request(
             "POST",
             "/auth/register/",
-            json={"username": username, "email": email, "password": password},
+            json={"email": email, "password": password},
         )
         return resp.json()
 

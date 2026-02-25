@@ -40,9 +40,7 @@ class SubscriptionModelTests(TestCase):
     """
 
     def setUp(self):
-        self.user = User.objects.create_user(
-            email="u@example.com", username="u", password="pw"
-        )
+        self.user = User.objects.create_user(email="u@example.com", password="pw")
         self.city = City.objects.create(name="AlphaCity")
 
     def test_subscription_str(self):
@@ -76,9 +74,7 @@ class SubscriptionSerializerTests(TestCase):
     """
 
     def setUp(self):
-        self.user = User.objects.create_user(
-            email="a@b.com", username="a", password="pw"
-        )
+        self.user = User.objects.create_user(email="a@b.com", password="pw")
         self.city = City.objects.create(name="ExistingCity")
         self.context = {"request": type("R", (), {"user": self.user})}
 
@@ -155,9 +151,7 @@ class SubscriptionAPITests(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(
-            email="api@sub.com", username="apiuser", password="pw"
-        )
+        self.user = User.objects.create_user(email="api@sub.com", password="pw")
         self.client.force_authenticate(user=self.user)
         self.city1 = City.objects.create(name="CityOne")
         self.city2 = City.objects.create(name="CityTwo")

@@ -33,9 +33,7 @@ class CeleryEnqueueOnCreateTests(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(
-            email="c1@test.com", username="c1", password="pw"
-        )
+        self.user = User.objects.create_user(email="c1@test.com", password="pw")
         self.client.force_authenticate(user=self.user)
 
     @patch("subscriptions.views.send_for_subscription")
@@ -69,9 +67,7 @@ class CeleryFallbackWhenBrokerDownTests(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(
-            email="c2@test.com", username="c2", password="pw"
-        )
+        self.user = User.objects.create_user(email="c2@test.com", password="pw")
         self.client.force_authenticate(user=self.user)
 
     @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
@@ -122,9 +118,7 @@ class CeleryEagerIntervalTests(TestCase):
     """
 
     def setUp(self):
-        self.user = User.objects.create_user(
-            email="c3@test.com", username="c3", password="pw"
-        )
+        self.user = User.objects.create_user(email="c3@test.com", password="pw")
         self.city = City.objects.create(name="TestCity")
         self.sub_old = Subscription.objects.create(
             user=self.user,

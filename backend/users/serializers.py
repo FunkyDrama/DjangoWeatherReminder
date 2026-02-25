@@ -24,13 +24,12 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("id", "email", "username", "password", "webhook_url")
+        fields = ("id", "email", "password", "webhook_url")
 
     def create(self, validated_data):
         webhook_url = validated_data.pop("webhook_url", None)
         user = User.objects.create_user(
             email=validated_data["email"],
-            username=validated_data["username"],
             password=validated_data["password"],
         )
         if webhook_url:
@@ -51,13 +50,11 @@ class UserSerializer(serializers.ModelSerializer):
     :type id: int
     :ivar email: The email address of the user. This field is read-only.
     :type email: str
-    :ivar username: The username of the user. This field is read-only.
-    :type username: str
     :ivar webhook_url: The webhook URL associated with the user.
     :type webhook_url: str
     """
 
     class Meta:
         model = User
-        fields = ("id", "email", "username", "webhook_url")
-        read_only_fields = ("email", "username")
+        fields = ("id", "email", "webhook_url")
+        read_only_fields = ("email",)

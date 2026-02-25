@@ -41,7 +41,7 @@ export default function Layout() {
                         {user && (
                             <>
                                 <div className="hidden sm:flex items-center space-x-4">
-                                    <span className="text-sm text-gray-500">{user.username}</span>
+                                    <span className="text-sm text-gray-500">{user.email}</span>
                                     <button
                                         onClick={handleLogout}
                                         className="text-sm text-red-600 hover:text-red-800 transition-colors"
@@ -86,7 +86,7 @@ export default function Layout() {
                                 Profile
                             </Link>
                             <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                                <span className="text-sm text-gray-500">{user.username}</span>
+                                <span className="text-sm text-gray-500">{user.email}</span>
                                 <button
                                     onClick={() => {
                                         closeMenu();

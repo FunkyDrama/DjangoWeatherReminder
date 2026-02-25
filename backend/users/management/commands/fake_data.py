@@ -40,11 +40,7 @@ class Command(BaseCommand):
         users = []
         for _ in range(options["users"]):
             email = fake.unique.email()
-            users.append(
-                User.objects.create_user(
-                    email=email, username=email.split("@")[0], password="password123"
-                )
-            )
+            users.append(User.objects.create_user(email=email, password="password123"))
         self.stdout.write(self.style.SUCCESS(f"Created {len(users)} users"))
 
         count = 0

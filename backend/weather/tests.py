@@ -65,9 +65,7 @@ class WeatherAPITests(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(
-            email="api@test.com", username="apiuser", password="pass1234"
-        )
+        self.user = User.objects.create_user(email="api@test.com", password="pass1234")
         login_url = reverse("token_obtain_pair")
         r = self.client.post(
             login_url, {"email": "api@test.com", "password": "pass1234"}, format="json"

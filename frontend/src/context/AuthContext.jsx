@@ -31,8 +31,8 @@ export function AuthProvider({children}) {
         setUser(me.data)
     }
 
-    const register = async (username, email, password) => {
-        await api.post('auth/register/', {username, email, password})
+    const register = async (email, password) => {
+        await api.post('auth/register/', {email, password})
         await login(email, password)
     }
 
