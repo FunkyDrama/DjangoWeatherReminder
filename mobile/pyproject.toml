@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "Weather Reminder by DK"
+version = "1.0.0"
+description = "Weather notification subscription mobile app"
+authors = ["Daniel Kravchenko <daniel.kravchenko@protonmail.com>"]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+flet = ">=0.81.0"
+flet-desktop = ">=0.81.0"
+flet-secure-storage = "*"
+requests = ">=2.31.0"
+chardet = ">=5,<6"
+python-dotenv = ">=1.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.flet]
+app_name    = "Weather Reminder by DK"
+app_version = "1.0.0"
+org         = "weather.danielkravchenko.dev"
+description = "Subscribe to weather notifications by city"
+
+[tool.flet.android]
+permissions = ["android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE"]

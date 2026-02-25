@@ -1,16 +1,19 @@
 # Weather Reminder
 
-A full-stack weather notification service with a Django REST API backend and React frontend. Subscribe to weather updates for any city and receive notifications via email or webhook.
+A full-stack weather notification service with a Django REST API backend, React frontend, and Flet mobile app. Subscribe to weather updates for any city and receive notifications via email or webhook.
 
 **Live:** [weather.danielkravchenko.dev](https://weather.danielkravchenko.dev)
 
 ## Features
 
 - **React SPA** with Tailwind CSS, responsive design (mobile + desktop)
+- **Mobile app (Flet)** with bottom tabs (Weather, Logs, Profile)
 - **Weather search** with city autocomplete via OpenWeatherMap Geocoding API
 - **Subscriptions** — choose city, notification interval, and delivery method (email/webhook)
 - **Notification logs** — track every sent notification with status and response
+- **Logs UX on mobile** — newest logs first + pull-to-refresh gesture
 - **JWT authentication** — register, login, token refresh
+- **Secure token storage on mobile** — Secure Storage when available, SharedPreferences fallback
 - **Webhook support** — receive weather updates at your own URL
 - **Swagger UI** — interactive API documentation at `/api/v1/docs/`
 - **Background tasks** — Celery + RabbitMQ for scheduled weather notifications
@@ -20,6 +23,7 @@ A full-stack weather notification service with a Django REST API backend and Rea
 | Layer      | Technology                                           |
 |------------|------------------------------------------------------|
 | Frontend   | React 19, Vite, Tailwind CSS v4, React Router, Axios |
+| Mobile     | Flet 0.81, requests                                   |
 | Backend    | Django 5, Django REST Framework, drf-spectacular     |
 | Auth       | JWT (djangorestframework-simplejwt)                  |
 | Database   | PostgreSQL 16                                        |
@@ -51,6 +55,14 @@ djangoweatherreminder/
 │       ├── context/AuthContext.jsx
 │       ├── components/          # Layout, WeatherCard, SubscriptionForm, etc.
 │       └── pages/               # Login, Register, Dashboard, Logs, Profile
+├── mobile/
+│   ├── pyproject.toml
+│   ├── poetry.lock
+│   ├── poetry.toml
+│   ├── main.py
+│   ├── services/                # API client, auth/session storage
+│   ├── views/                   # Login, Register, Dashboard, Logs, Profile
+│   └── assets/                  # app icons/images
 ├── docker-compose.yml
 ├── nginx.conf
 ├── .env
@@ -91,6 +103,20 @@ npm run dev
 ```
 
 Vite dev server proxies `/api` requests to `localhost:8000`.
+
+**Mobile (Flet):**
+```bash
+cd mobile
+poetry install
+poetry run python main.py
+```
+
+Optional mobile build commands:
+```bash
+cd mobile
+poetry run flet build apk
+poetry run flet build aab
+```
 
 ## Environment Variables
 

@@ -1,0 +1,17 @@
+PRIMARY = "#4F46E5"  # indigo-600
+PRIMARY_DARK = "#4338CA"  # indigo-700
+PRIMARY_LIGHT = "#EEF2FF"  # indigo-50
+
+BG_COLOR = "#F9FAFB"  # gray-50
+CARD_COLOR = "#FFFFFF"
+BORDER_COLOR = "#E5E7EB"  # gray-200
+
+TEXT_PRIMARY = "#111827"  # gray-900
+TEXT_SECONDARY = "#6B7280"  # gray-500
+
+SUCCESS_BG = "#ECFDF5"  # green-50
+SUCCESS_COLOR = "#059669"  # green-600
+ERROR_BG = "#FEF2F2"  # red-50
+ERROR_COLOR = "#DC2626"  # red-600
+WARNING_COLOR = "#D97706"  # amber-600
+INFO_COLOR = "#3B82F6"  # blue-500
