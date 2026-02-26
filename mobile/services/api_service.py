@@ -266,9 +266,13 @@ class APIService:
     def delete_subscription(self, sub_id: int) -> None:
         self._request("DELETE", f"/subscriptions/{sub_id}/")
 
-    def get_logs(self) -> list[dict]:
-        data = self._request("GET", "/notifications/logs/").json()
-        return data.get("results", data) if isinstance(data, dict) else data
+    def get_logs(self, limit: int = 10, offset: int = 0) -> dict:
+        data = self._request(
+            "GET", "/notifications/logs/", params={"limit": limit, "offset": offset}
+        ).json()
+        if isinstance(data, dict) and "results" in data:
+            return data
+        return {"count": len(data), "results": data}
 
     def logout(self) -> None:
         self.access_token = None

@@ -92,7 +92,7 @@ def badge(label: str, bg: str, fg: str) -> ft.Container:
         content=ft.Text(label, size=11, weight=ft.FontWeight.W_600, color=fg),
         bgcolor=bg,
         border_radius=20,
-        padding=ft.padding.symmetric(horizontal=10, vertical=3),
+        padding=ft.Padding.symmetric(horizontal=10, vertical=3),
     )
 
 
@@ -113,7 +113,7 @@ def city_suggestion_tile(label: str, on_click) -> ft.Container:
     return ft.Container(
         on_click=on_click,
         bgcolor=CARD_COLOR,
-        border=ft.border.all(1, BORDER_COLOR),
+        border=ft.Border.all(1, BORDER_COLOR),
         border_radius=8,
         content=ft.ListTile(
             leading=ft.Icon(ft.Icons.LOCATION_ON_OUTLINED, color=PRIMARY, size=18),
@@ -254,7 +254,7 @@ class SubscriptionDialog:
             self.notif_rg.value = str(notif_types[0]["value"])
 
         self.error_text = ft.Text("", color=ERROR_COLOR, size=12, visible=False)
-        self.save_btn = ft.ElevatedButton(
+        self.save_btn = ft.Button(
             content=ft.Text(
                 "Save", color=ft.Colors.WHITE, size=14, weight=ft.FontWeight.W_600
             ),

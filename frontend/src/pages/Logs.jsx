@@ -1,18 +1,69 @@
-import {useEffect, useState} from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import api from '../api/client'
+
+const PAGE_SIZE = 10
+
+function StatusBadge({status}) {
+    const sent = status === 'sent'
+    return (
+        <span
+            className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${
+                sent ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+            }`}
+        >
+            {sent ? '✓ Sent' : '✗ Failed'}
+        </span>
+    )
+}
 
 export default function Logs() {
     const [logs, setLogs] = useState([])
     const [loading, setLoading] = useState(true)
+    const [loadingMore, setLoadingMore] = useState(false)
+    const [hasMore, setHasMore] = useState(false)
+    const offsetRef = useRef(0)
+    const sentinelRef = useRef(null)
 
-    useEffect(() => {
-        api
-            .get('notifications/logs/')
-            .then((res) => setLogs(res.data.results || res.data))
-            .catch(() => {
+    const fetchPage = useCallback(async (offset, replace) => {
+        try {
+            const res = await api.get('notifications/logs/', {
+                params: {limit: PAGE_SIZE, offset},
             })
-            .finally(() => setLoading(false))
+            const data = res.data
+            const results = data.results ?? data
+            const total = data.count ?? results.length
+            setLogs(prev => replace ? results : [...prev, ...results])
+            offsetRef.current = offset + results.length
+            setHasMore(offsetRef.current < total)
+        } catch {
+            // silently ignore; existing logs stay on screen
+        }
     }, [])
+
+    // Initial load
+    useEffect(() => {
+        setLoading(true)
+        offsetRef.current = 0
+        fetchPage(0, true).finally(() => setLoading(false))
+    }, [fetchPage])
+
+    // Intersection Observer for infinite scroll
+    useEffect(() => {
+        if (!sentinelRef.current) return
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && hasMore && !loadingMore) {
+                    setLoadingMore(true)
+                    fetchPage(offsetRef.current, false).finally(() =>
+                        setLoadingMore(false)
+                    )
+                }
+            },
+            {rootMargin: '200px'},
+        )
+        observer.observe(sentinelRef.current)
+        return () => observer.disconnect()
+    }, [hasMore, loadingMore, fetchPage])
 
     if (loading) {
         return (
@@ -31,6 +82,7 @@ export default function Logs() {
                 </div>
             ) : (
                 <>
+                    {/* Desktop table */}
                     <div className="hidden sm:block bg-white rounded-xl shadow-md overflow-hidden">
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50 text-left text-gray-600">
@@ -47,21 +99,12 @@ export default function Logs() {
                                 <tr key={log.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-6 py-4 font-medium text-gray-800">{log.city}</td>
                                     <td className="px-6 py-4">
-                      <span
-                          className="inline-block bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-1 rounded-full">
-                        {log.notification_type}
-                      </span>
+                                        <span className="inline-block bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-1 rounded-full">
+                                            {log.notification_type}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-4">
-                      <span
-                          className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${
-                              log.status === 'success'
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-red-100 text-red-700'
-                          }`}
-                      >
-                        {log.status}
-                      </span>
+                                        <StatusBadge status={log.status}/>
                                     </td>
                                     <td className="px-6 py-4 text-gray-500">
                                         {new Date(log.sent_at).toLocaleString()}
@@ -75,27 +118,19 @@ export default function Logs() {
                         </table>
                     </div>
 
+                    {/* Mobile cards */}
                     <div className="sm:hidden space-y-3">
                         {logs.map((log) => (
                             <div key={log.id} className="bg-white rounded-xl shadow-md p-4">
                                 <div className="flex items-center justify-between mb-2">
                                     <h4 className="font-medium text-gray-800">{log.city}</h4>
-                                    <span
-                                        className={`text-xs font-medium px-2 py-1 rounded-full ${
-                                            log.status === 'success'
-                                                ? 'bg-green-100 text-green-700'
-                                                : 'bg-red-100 text-red-700'
-                                        }`}
-                                    >
-                    {log.status}
-                  </span>
+                                    <StatusBadge status={log.status}/>
                                 </div>
                                 <div className="text-sm text-gray-500 space-y-1">
                                     <div className="flex items-center gap-2">
-                    <span
-                        className="inline-block bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                      {log.notification_type}
-                    </span>
+                                        <span className="inline-block bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                                            {log.notification_type}
+                                        </span>
                                         <span>{new Date(log.sent_at).toLocaleString()}</span>
                                     </div>
                                     {log.response && (
@@ -104,6 +139,13 @@ export default function Logs() {
                                 </div>
                             </div>
                         ))}
+                    </div>
+
+                    {/* Infinite scroll sentinel */}
+                    <div ref={sentinelRef} className="flex justify-center py-4">
+                        {loadingMore && (
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"/>
+                        )}
                     </div>
                 </>
             )}

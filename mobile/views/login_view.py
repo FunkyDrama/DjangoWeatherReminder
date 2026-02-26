@@ -55,21 +55,21 @@ class LoginView:
             content=ft.Text("", color=ERROR_COLOR, size=13),
             bgcolor=ERROR_BG,
             border_radius=8,
-            padding=ft.padding.symmetric(horizontal=12, vertical=8),
+            padding=ft.Padding.symmetric(horizontal=12, vertical=8),
             visible=False,
         )
 
         spinner = ft.ProgressRing(
             width=22, height=22, color=ft.Colors.WHITE, stroke_width=2.5
         )
-        login_btn = ft.ElevatedButton(
+        login_btn = ft.Button(
             content=ft.Text(
                 "Sign In", color=ft.Colors.WHITE, size=15, weight=ft.FontWeight.W_600
             ),
             style=ft.ButtonStyle(
                 bgcolor={"": PRIMARY, "disabled": "#9CA3AF"},
                 shape=ft.RoundedRectangleBorder(radius=10),
-                padding=ft.padding.symmetric(vertical=14),
+                padding=ft.Padding.symmetric(vertical=14),
                 elevation=0,
             ),
             expand=True,
@@ -124,7 +124,7 @@ class LoginView:
             controls=[
                 ft.Container(
                     expand=True,
-                    padding=ft.padding.symmetric(horizontal=24, vertical=16),
+                    padding=ft.Padding.symmetric(horizontal=24, vertical=16),
                     content=ft.Column(
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                         spacing=0,
@@ -134,9 +134,7 @@ class LoginView:
                                 width=96,
                                 height=96,
                                 alignment=ft.Alignment.CENTER,
-                                content=ft.Image(
-                                    src="favicon.png", width=76, height=76
-                                ),
+                                content=ft.Image(src="icon.png", width=76, height=76),
                             ),
                             ft.Container(height=20),
                             ft.Text(

@@ -29,19 +29,18 @@ from palette import (
 
 class DashboardTab:
     """
-    Represents a dashboard tab for a weather reminder application.
+    Represents the dashboard tab, providing UI components and logic
+    for displaying weather information and user subscriptions.
 
-    This class is responsible for building and managing the user interface for the
-    dashboard tab, including functionality to search for city weather information,
-    manage subscriptions, and load associated data. It handles user input,
-    interacts with the API for weather and city data, and dynamically updates the
-    UI based on user interactions and API responses.
+    This class is responsible for rendering a weather card for city
+    weather searches, handling user interactions, such as city search
+    and subscriptions, and updating the UI state accordingly. It
+    integrates with external services (e.g., APIService) to fetch
+    required data dynamically.
 
-    :ivar page: A reference to the `ft.Page` object representing the parent
-        interface for the application.
+    :ivar page: The application's main page to which controls are added.
     :type page: ft.Page
-    :ivar api: A reference to the `APIService` instance used for interacting
-        with external APIs for weather and city data.
+    :ivar api: Service used to interact with APIs for fetching data.
     :type api: APIService
     """
 
@@ -56,6 +55,9 @@ class DashboardTab:
         self._weather_section: Optional[ft.Column] = None
         self._interval_options: list[tuple[str, str]] = []
         self._notif_types: list[dict] = []
+        self._is_refreshing: bool = False
+        self._last_scroll_px: float = 0.0
+        self._pull_visual: float = 0.0
 
     def build(self) -> ft.Control:
         if self._built:
@@ -72,7 +74,7 @@ class DashboardTab:
                 alignment=ft.MainAxisAlignment.CENTER,
             ),
             visible=False,
-            padding=ft.padding.symmetric(vertical=12),
+            padding=ft.Padding.symmetric(vertical=12),
         )
         self._suggestions_col = ft.Column(visible=False, spacing=2)
 
@@ -143,7 +145,7 @@ class DashboardTab:
                 ],
             ),
             alignment=ft.Alignment.CENTER,
-            padding=ft.padding.symmetric(vertical=24),
+            padding=ft.Padding.symmetric(vertical=24),
             visible=False,
         )
         self._sub_error = ft.Text("", color=ERROR_COLOR, size=13, visible=False)
@@ -172,18 +174,39 @@ class DashboardTab:
             ],
         )
 
+        self._header_ring = ft.ProgressRing(
+            width=20, height=20, color=ft.Colors.WHITE, stroke_width=2.5, visible=False
+        )
+
+        self._pull_spacer = ft.Container(
+            height=0,
+            animate=ft.Animation(140, ft.AnimationCurve.EASE_OUT),
+        )
+
+        self._lv = ft.ListView(
+            expand=True,
+            padding=ft.Padding.all(20),
+            spacing=24,
+            on_scroll=self._on_list_scroll,
+            controls=[
+                self._pull_spacer,
+                self._weather_section,
+                ft.Divider(color=BORDER_COLOR),
+                subs_section,
+            ],
+        )
+
         root = ft.Column(
-            scroll=ft.ScrollMode.AUTO,
             expand=True,
             spacing=0,
             controls=[
                 ft.Container(
                     bgcolor=PRIMARY,
-                    padding=ft.padding.only(left=20, right=20, top=48, bottom=16),
+                    padding=ft.Padding.only(left=20, right=20, top=48, bottom=16),
                     content=ft.Row(
                         spacing=4,
                         controls=[
-                            ft.Image(src="favicon.png", width=24, height=24),
+                            ft.Image(src="icon.png", width=24, height=24),
                             ft.Text(
                                 "Weather Reminder",
                                 size=20,
@@ -191,21 +214,15 @@ class DashboardTab:
                                 color=ft.Colors.WHITE,
                                 expand=True,
                             ),
+                            self._header_ring,
                         ],
                     ),
                 ),
-                ft.Container(
+                ft.GestureDetector(
+                    content=self._lv,
+                    on_vertical_drag_update=self._on_drag_update,
+                    on_vertical_drag_end=self._on_drag_end,
                     expand=True,
-                    bgcolor=BG_COLOR,
-                    padding=ft.padding.all(20),
-                    content=ft.Column(
-                        spacing=24,
-                        controls=[
-                            self._weather_section,
-                            ft.Divider(color=BORDER_COLOR),
-                            subs_section,
-                        ],
-                    ),
                 ),
             ],
         )
@@ -416,8 +433,9 @@ class DashboardTab:
             padding=20,
         )
 
-    async def _load_subscriptions(self) -> None:
-        self._sub_loading.visible = True
+    async def _load_subscriptions(self, show_inner: bool = True) -> None:
+        if show_inner:
+            self._sub_loading.visible = True
         self._sub_error.visible = False
         self.page.update()
         try:
@@ -501,7 +519,7 @@ class DashboardTab:
                                         ),
                                         bgcolor=BG_COLOR,
                                         border_radius=20,
-                                        padding=ft.padding.symmetric(
+                                        padding=ft.Padding.symmetric(
                                             horizontal=10, vertical=3
                                         ),
                                     ),
@@ -572,7 +590,7 @@ class DashboardTab:
                         content=ft.Text("Cancel", color=TEXT_SECONDARY),
                         on_click=lambda e: self.page.pop_dialog(),
                     ),
-                    ft.ElevatedButton(
+                    ft.Button(
                         content=ft.Text("Delete", color=ft.Colors.WHITE),
                         style=ft.ButtonStyle(
                             bgcolor=ERROR_COLOR,
@@ -584,6 +602,62 @@ class DashboardTab:
                 actions_alignment=ft.MainAxisAlignment.END,
             )
         )
+
+    def _start_refresh(self) -> None:
+        if self._is_refreshing:
+            return
+        self._is_refreshing = True
+        self._header_ring.visible = True
+        self.page.update()
+        self.page.run_task(self._do_refresh)
+
+    def _on_drag_update(self, e) -> None:
+        if self._is_refreshing:
+            return
+        delta = getattr(e, "primary_delta", None) or 0
+        at_top = self._last_scroll_px <= 1
+        if at_top and delta > 0:
+            self._pull_visual = min(56.0, self._pull_visual + (delta * 0.55))
+            self._pull_spacer.height = self._pull_visual
+            self.page.update()
+        elif self._pull_visual > 0:
+            self._pull_visual = 0.0
+            self._pull_spacer.height = 0
+            self.page.update()
+
+    def _on_list_scroll(self, e) -> None:
+        if self._is_refreshing:
+            return
+        pixels = getattr(e, "pixels", None)
+        if pixels is None:
+            return
+        if pixels < -8 and self._last_scroll_px >= 0:
+            self._last_scroll_px = pixels
+            self._start_refresh()
+            return
+        self._last_scroll_px = pixels
+
+    def _on_drag_end(self, e) -> None:
+        if self._is_refreshing:
+            return
+        if self._pull_visual > 0:
+            self._pull_visual = 0.0
+            self._pull_spacer.height = 0
+        vel = getattr(e, "primary_velocity", None)
+        at_top = self._last_scroll_px <= 1
+        if at_top and (vel is None or vel > 50):
+            self._start_refresh()
+
+    async def _do_refresh(self) -> None:
+        try:
+            await self._load_subscriptions(show_inner=False)
+        finally:
+            self._header_ring.visible = False
+            self._is_refreshing = False
+            self._last_scroll_px = 0.0
+            self._pull_visual = 0.0
+            self._pull_spacer.height = 0
+            self.page.update()
 
     async def _handle_token_expired(self) -> None:
         auth_session: AuthSession = self.page.auth_session
