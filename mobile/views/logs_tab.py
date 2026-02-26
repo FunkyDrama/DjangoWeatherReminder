@@ -1,5 +1,7 @@
 import asyncio
 from datetime import datetime
+from math import ceil
+from time import monotonic
 
 import flet as ft
 
@@ -18,39 +20,52 @@ from services.api_service import APIError, APIService, TokenExpiredError
 from services.auth_session import AuthSession
 
 _PAGE_SIZE = 10
+_SHIFT_COOLDOWN = 0.45  # min seconds between consecutive window shifts
+_NEAR_EDGE_PX = 180  # scroll trigger distance for short lists
+_MIN_MOVE_PX = 6  # min scroll delta to count as directional movement
+_TRIGGER_TOP = 0.25  # shift up when in top 25 % of scroll range
+_TRIGGER_BOTTOM = 0.65  # shift down when past 65 % of scroll range
+
+_LOCAL_TZ = datetime.now().astimezone().tzinfo
 
 
 def _format_dt(dt_str: str | None) -> str:
     """
-    Formats a datetime string into a readable format. If the input is None or invalid, it returns
-    either a placeholder or a truncated version of the original string. The function handles ISO
-    8601 datetime strings and converts them to the format "DD Mon YYYY, HH:MM".
+    Formats a given datetime string into a readable format based on the local timezone.
+
+    If the input datetime string is `None` or invalid, the function will return a default
+    placeholder string. If the input datetime string is valid, it is converted from its
+    ISO 8601 format to the local timezone and formatted as "dd.mm.yyyy HH:MM". Any
+    exceptions encountered during processing will result in returning a truncated version
+    of the original input.
 
     :param dt_str: A string representing a datetime in ISO 8601 format or None.
     :type dt_str: str | None
-    :return: A string representing the formatted datetime or a fallback value if the input is
-        None or invalid.
+    :return: A formatted datetime string in "dd.mm.yyyy HH:MM" format or a fallback string
+        for invalid or None inputs.
     :rtype: str
     """
     if not dt_str:
         return "—"
     try:
         dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-        return dt.strftime("%d %b %Y, %H:%M")
+        return dt.astimezone(_LOCAL_TZ).strftime("%d.%m.%Y %H:%M")
     except Exception:
         return dt_str[:16]
 
 
 def _is_success(status: str) -> bool:
     """
-    Determines if the provided status indicates a successful operation.
+    Determines if the given status indicates a successful operation.
 
-    This function checks whether the given status string represents a
-    successful state by comparing it (case-insensitively) to the term "sent".
+    This function evaluates whether a provided status string corresponds to
+    a successful state. Specifically, it checks if the status is 'sent',
+    case-insensitively.
 
-    :param status: The status to evaluate.
+    :param status: A string representing the operation's status.
     :type status: str
-    :return: True if the status is "sent" (case-insensitive), otherwise False.
+
+    :return: True if the status is "sent", otherwise False.
     :rtype: bool
     """
     return status.lower() == "sent"
@@ -58,16 +73,16 @@ def _is_success(status: str) -> bool:
 
 class LogsTab:
     """
-    Manages the display, interaction, and functionality of the Notification Logs tab
-    in the application.
+    Represents a tab for displaying notification logs in a user interface.
 
-    The LogsTab class handles building the user interface elements required to
-    display notification logs, managing the asynchronous loading of logs from the
-    API, and displaying relevant status messages (e.g., errors or empty state).
+    This class is responsible for building and managing the visual elements
+    necessary for rendering and interacting with notification logs. It provides
+    features to dynamically fetch, display, and paginate through notifications
+    retrieved from an API.
 
-    :ivar page: The application page reference to build and manage the UI.
+    :ivar page: The main page instance where this tab is rendered.
     :type page: ft.Page
-    :ivar api: The API service instance used to fetch notifications and metadata.
+    :ivar api: The API service instance used to fetch notification data.
     :type api: APIService
     """
 
@@ -83,10 +98,14 @@ class LogsTab:
         self._is_refreshing = False
         self._last_scroll_px = 0.0
         self._pull_visual = 0.0
-        self._offset = 0
-        self._total_count = 0
         self._has_more = False
         self._loading_more = False
+        self._pages: dict[int, list[dict]] = {}
+        self._start_page = 0
+        self._total_pages = 0
+        self._paging_busy = False
+        self._prefetching: set[int] = set()
+        self._last_shift_at = 0.0
 
     def build(self) -> ft.Control:
         if self._built:
@@ -123,9 +142,6 @@ class LogsTab:
             padding=ft.Padding.symmetric(vertical=48),
             visible=False,
         )
-
-        self._log_list = ft.Column(spacing=10, controls=[])
-
         self._more_loading = ft.Container(
             content=ft.Row(
                 [ft.ProgressRing(width=22, height=22, color=PRIMARY, stroke_width=2.5)],
@@ -134,7 +150,14 @@ class LogsTab:
             padding=ft.Padding.symmetric(vertical=10),
             visible=False,
         )
-
+        self._top_loading = ft.Container(
+            content=ft.Row(
+                [ft.ProgressRing(width=20, height=20, color=PRIMARY, stroke_width=2.5)],
+                alignment=ft.MainAxisAlignment.CENTER,
+            ),
+            padding=ft.Padding.symmetric(vertical=8),
+            visible=False,
+        )
         self._pull_spacer = ft.Container(
             height=0,
             animate=ft.Animation(140, ft.AnimationCurve.EASE_OUT),
@@ -142,6 +165,7 @@ class LogsTab:
 
         self._lv = ft.ListView(
             expand=True,
+            build_controls_on_demand=True,
             padding=ft.Padding.all(20),
             spacing=10,
             on_scroll=self._on_list_scroll,
@@ -150,9 +174,15 @@ class LogsTab:
                 self._error_text,
                 self._loading,
                 self._empty_view,
-                self._log_list,
                 self._more_loading,
             ],
+        )
+
+        self._lv_wrapper = ft.Container(
+            content=self._lv,
+            animate_opacity=ft.Animation(200, ft.AnimationCurve.EASE_IN_OUT),
+            opacity=1.0,
+            expand=True,
         )
 
         self._header_ring = ft.ProgressRing(
@@ -184,7 +214,7 @@ class LogsTab:
                     ),
                 ),
                 ft.GestureDetector(
-                    content=self._lv,
+                    content=self._lv_wrapper,
                     on_vertical_drag_update=self._on_drag_update,
                     on_vertical_drag_end=self._on_drag_end,
                     expand=True,
@@ -198,12 +228,16 @@ class LogsTab:
     async def _load_logs(self, show_inner: bool = True) -> None:
         self._error_text.visible = False
         self._empty_view.visible = False
+        self._pages = {}
+        self._start_page = 0
+        self._total_pages = 0
+        self._has_more = False
+        self._paging_busy = False
+        self._prefetching.clear()
+        self._last_shift_at = 0.0
+        self._render_window()
         if show_inner:
             self._loading.visible = True
-            self._log_list.controls.clear()
-            self._offset = 0
-            self._total_count = 0
-            self._has_more = False
         self.page.update()
 
         try:
@@ -216,8 +250,8 @@ class LogsTab:
                 for item in metadata.get("notification_types", [])
                 if "value" in item
             } or self._notif_types
-            result = await asyncio.to_thread(self.api.get_logs, _PAGE_SIZE, 0)
-            self._render_page(result, reset=True)
+            await self._fetch_page(0)
+            self._render_window()
         except TokenExpiredError:
             await self._handle_token_expired()
         except APIError as ex:
@@ -230,45 +264,123 @@ class LogsTab:
             self._loading.visible = False
             self.page.update()
 
-    def _render_page(self, result: dict, *, reset: bool = False) -> None:
+    def _store_page(self, result: dict, page_num: int) -> None:
         logs = result.get("results", [])
         total = result.get("count", len(logs))
 
-        if reset:
-            self._log_list.controls.clear()
-            self._offset = 0
-
-        if not logs and reset:
+        if total == 0:
             self._empty_view.visible = True
-            self._total_count = 0
+            self._total_pages = 0
             self._has_more = False
+            self._pages = {}
             return
 
         self._empty_view.visible = False
-        self._total_count = total
+        self._total_pages = max(1, ceil(total / _PAGE_SIZE))
+        self._pages[page_num] = logs
+        self._has_more = max(self._pages) < self._total_pages - 1
 
-        for entry in logs:
-            self._log_list.controls.append(self._build_log_card(entry))
+    def _render_window(self) -> None:
+        cards = [
+            self._build_log_card(entry)
+            for entry in self._pages.get(self._start_page, [])
+        ]
+        self._lv.controls = [
+            self._pull_spacer,
+            self._error_text,
+            self._loading,
+            self._empty_view,
+            self._top_loading,
+            *cards,
+            self._more_loading,
+        ]
 
-        self._offset += len(logs)
-        self._has_more = self._offset < total
+    async def _fetch_page(self, page_num: int) -> None:
+        if page_num < 0:
+            return
+        if self._total_pages and page_num >= self._total_pages:
+            return
+        if page_num in self._pages:
+            return
+        result = await asyncio.to_thread(
+            self.api.get_logs, _PAGE_SIZE, page_num * _PAGE_SIZE
+        )
+        self._store_page(result, page_num)
 
-    async def _load_more_async(self) -> None:
+    async def _prefetch_page(self, page_num: int) -> None:
+        if page_num < 0 or page_num in self._prefetching or page_num in self._pages:
+            return
+        if self._total_pages and page_num >= self._total_pages:
+            return
+        self._prefetching.add(page_num)
+        try:
+            await self._fetch_page(page_num)
+        except Exception:
+            pass
+        finally:
+            self._prefetching.discard(page_num)
+
+    async def _shift_window_down(self) -> None:
+        if self._paging_busy or self._is_refreshing:
+            return
+        if self._start_page >= self._total_pages - 1:
+            return
+        self._paging_busy = True
+        self._loading_more = True
+        next_page = self._start_page + 1
         try:
             self._more_loading.visible = True
             self.page.update()
-            result = await asyncio.to_thread(
-                self.api.get_logs, _PAGE_SIZE, self._offset
-            )
-            self._render_page(result, reset=False)
+            await self._fetch_page(next_page)
             self._more_loading.visible = False
+            self._lv_wrapper.opacity = 0.0
             self.page.update()
+            await asyncio.sleep(0.12)
+            self._start_page = next_page
+            self._render_window()
+            self._lv_wrapper.opacity = 1.0
+            self.page.update()
+            self.page.run_task(self._prefetch_page, next_page + 1)
         except TokenExpiredError:
             await self._handle_token_expired()
         except Exception:
             pass
         finally:
+            self._paging_busy = False
             self._loading_more = False
+            self._more_loading.visible = False
+            self._lv_wrapper.opacity = 1.0
+            self.page.update()
+
+    async def _shift_window_up(self) -> None:
+        if self._paging_busy or self._is_refreshing:
+            return
+        if self._start_page <= 0:
+            return
+        self._paging_busy = True
+        prev_page = self._start_page - 1
+        try:
+            self._top_loading.visible = True
+            self.page.update()
+            await self._fetch_page(prev_page)
+            self._top_loading.visible = False
+            self._lv_wrapper.opacity = 0.0
+            self.page.update()
+            await asyncio.sleep(0.12)
+            self._start_page = prev_page
+            self._render_window()
+            self._lv_wrapper.opacity = 1.0
+            self.page.update()
+            self.page.run_task(self._prefetch_page, prev_page - 1)
+        except TokenExpiredError:
+            await self._handle_token_expired()
+        except Exception:
+            pass
+        finally:
+            self._top_loading.visible = False
+            self._paging_busy = False
+            self._lv_wrapper.opacity = 1.0
+            self.page.update()
 
     def _build_log_card(self, entry: dict) -> ft.Container:
         status = entry.get("status", "")
@@ -360,12 +472,12 @@ class LogsTab:
         self.page.run_task(self._do_refresh)
 
     def _on_drag_update(self, e) -> None:
-        if self._is_refreshing:
+        if self._is_refreshing or self._start_page > 0:
             return
         delta = getattr(e, "primary_delta", None) or 0
         at_top = self._last_scroll_px <= 1
         if at_top and delta > 0:
-            self._pull_visual = min(56.0, self._pull_visual + (delta * 0.55))
+            self._pull_visual = min(56.0, self._pull_visual + delta * 0.55)
             self._pull_spacer.height = self._pull_visual
             self.page.update()
         elif self._pull_visual > 0:
@@ -373,35 +485,75 @@ class LogsTab:
             self._pull_spacer.height = 0
             self.page.update()
 
+    def _on_drag_end(self, e) -> None:
+        if self._is_refreshing:
+            return
+        if self._start_page > 0:
+            self._pull_visual = 0.0
+            self._pull_spacer.height = 0
+            return
+        was_pulled = self._pull_visual > 15
+        if self._pull_visual > 0:
+            self._pull_visual = 0.0
+            self._pull_spacer.height = 0
+            self.page.update()
+        if was_pulled:
+            self._start_refresh()
+
     def _on_list_scroll(self, e) -> None:
         pixels = getattr(e, "pixels", None)
         if pixels is None:
             return
+        prev = self._last_scroll_px
 
         if not self._is_refreshing:
-            if pixels < -8 and self._last_scroll_px >= 0:
+            if self._start_page == 0 and pixels < -8 and prev >= 0:
                 self._last_scroll_px = pixels
                 self._start_refresh()
                 return
             self._last_scroll_px = pixels
 
-        if self._is_refreshing or self._loading_more or not self._has_more:
+        if self._is_refreshing or self._loading_more or self._paging_busy:
             return
-        max_extent = getattr(e, "max_scroll_extent", None)
-        if max_extent is not None and max_extent > 50 and pixels >= max_extent - 150:
-            self._loading_more = True
-            self.page.run_task(self._load_more_async)
 
-    def _on_drag_end(self, e) -> None:
-        if self._is_refreshing:
+        max_extent = getattr(e, "max_scroll_extent", None)
+        top_trigger = _NEAR_EDGE_PX
+        bottom_trigger = None
+        if max_extent is not None and max_extent > 0:
+            if max_extent > _NEAR_EDGE_PX * 2:
+                top_trigger = max_extent * _TRIGGER_TOP
+                bottom_trigger = max_extent * _TRIGGER_BOTTOM
+            else:
+                bottom_trigger = max_extent - _NEAR_EDGE_PX
+
+        movement = pixels - prev
+        now = monotonic()
+        in_cooldown = now - self._last_shift_at < _SHIFT_COOLDOWN
+
+        if (
+            pixels <= top_trigger
+            and self._start_page > 0
+            and movement < -_MIN_MOVE_PX
+            and not in_cooldown
+        ):
+            self._last_shift_at = now
+            self.page.run_task(self._shift_window_up)
             return
-        if self._pull_visual > 0:
-            self._pull_visual = 0.0
-            self._pull_spacer.height = 0
-        vel = getattr(e, "primary_velocity", None)
-        at_top = self._last_scroll_px <= 1
-        if at_top and (vel is None or vel > 50):
-            self._start_refresh()
+
+        can_shift_down = (
+            self._total_pages > 0 and self._start_page < self._total_pages - 1
+        )
+        if (
+            bottom_trigger is not None
+            and max_extent is not None
+            and max_extent > 0
+            and pixels >= bottom_trigger
+            and can_shift_down
+            and movement > _MIN_MOVE_PX
+            and not in_cooldown
+        ):
+            self._last_shift_at = now
+            self.page.run_task(self._shift_window_down)
 
     async def _do_refresh(self) -> None:
         try:
