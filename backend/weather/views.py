@@ -1,5 +1,7 @@
 from dataclasses import asdict
 
+import requests
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import permissions, status
@@ -48,10 +50,25 @@ class WeatherAPIView(APIView):
             )
 
         client = WeatherAPIClient()
-        if lat is not None and lon is not None:
-            weather_data = client.get_current(lat=float(lat), lon=float(lon))
-        else:
-            weather_data = client.get_current(city_name=city)
+        try:
+            if lat is not None and lon is not None:
+                weather_data = client.get_current(lat=float(lat), lon=float(lon))
+            else:
+                weather_data = client.get_current(city_name=city)
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                return Response(
+                    {"detail": "City not found."}, status=status.HTTP_404_NOT_FOUND
+                )
+            return Response(
+                {"detail": "Weather provider error."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        except requests.RequestException:
+            return Response(
+                {"detail": "Weather provider is unavailable. Try again later."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         return Response(asdict(weather_data))
 
 

@@ -1,7 +1,30 @@
 from dataclasses import dataclass
 from datetime import datetime
+from functools import cache
+
 from django.conf import settings
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+REQUEST_TIMEOUT = (5, 10)
+
+
+@cache
+def get_session() -> requests.Session:
+    retry = Retry(
+        total=3,
+        connect=3,
+        read=2,
+        status=3,
+        backoff_factor=0.5,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=frozenset({"GET"}),
+        respect_retry_after_header=True,
+    )
+    session = requests.Session()
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+    return session
 
 
 @dataclass
@@ -67,7 +90,9 @@ class WeatherAPIClient:
 
     def geocode(self, query: str, limit: int = 5) -> list[dict]:
         params = {"q": query, "limit": limit, "appid": self.API_KEY}
-        resp = requests.get(f"{self.GEO_URL}/direct", params=params)
+        resp = get_session().get(
+            f"{self.GEO_URL}/direct", params=params, timeout=REQUEST_TIMEOUT
+        )
         resp.raise_for_status()
         return [
             {
@@ -89,7 +114,9 @@ class WeatherAPIClient:
             params["lon"] = lon
         else:
             params["q"] = city_name
-        resp = requests.get(f"{self.BASE_URL}/weather", params=params)
+        resp = get_session().get(
+            f"{self.BASE_URL}/weather", params=params, timeout=REQUEST_TIMEOUT
+        )
         resp.raise_for_status()
         data = resp.json()
         return WeatherData(

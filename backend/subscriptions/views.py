@@ -16,6 +16,8 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Subscription.objects.none()
         return Subscription.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):

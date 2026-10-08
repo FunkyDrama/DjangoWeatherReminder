@@ -16,6 +16,8 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = LogsPagination
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return NotificationLog.objects.none()
         return (
             NotificationLog.objects.filter(subscription__user=self.request.user)
             .select_related("subscription", "subscription__city")
