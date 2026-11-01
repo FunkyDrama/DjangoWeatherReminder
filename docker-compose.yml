@@ -55,6 +55,9 @@ services:
       - static_volume:/app/staticfiles
     networks:
       - internal
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     deploy:
       resources:
         limits:
@@ -95,6 +98,9 @@ services:
              --concurrency=1 --prefetch-multiplier=1 -Ofair"
     networks:
       - internal
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     deploy:
       resources:
         limits:
@@ -115,6 +121,9 @@ services:
              celery -A djangoweatherreminder beat -l info"
     networks:
       - internal
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     deploy:
       resources:
         limits:
